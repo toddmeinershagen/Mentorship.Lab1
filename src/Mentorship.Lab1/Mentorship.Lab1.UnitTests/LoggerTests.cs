@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using FluentAssertions;
 using NSubstitute;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
@@ -24,6 +25,36 @@ namespace Mentorship.Lab1.UnitTests
             repository.Received(1).Save(message);
         }
 
+        [Test]
+        public void given_a_repository_that_returns_1_on_save_when_logging_an_error_then_should_throw()
+        {
+            var message = "TestMessage";
+            var repository = Substitute.For<ILogRepository>();
+            repository.Save(message).Returns(1);
+
+            var logger = new Logger(repository);
+
+            Action action = () => logger.Error(message);
+
+            action
+                .ShouldThrow<ArgumentException>()
+                .WithMessage("What the heck!");
+        }
+
+        [Test]
+        public void given_a_repository_that_returns_0_on_save_when_logging_an_error_then_should_succeed()
+        {
+            var message = "TestMessage";
+            var repository = Substitute.For<ILogRepository>();
+            repository.Save(message).Returns(0);
+            //var repository = new TestLogRepository(0);
+
+            var logger = new Logger(repository);
+            Action action = () => logger.Error(message);
+
+            action.ShouldNotThrow();
+        }
+
         public class Logger
         {
             private ILogRepository repo;
@@ -35,13 +66,33 @@ namespace Mentorship.Lab1.UnitTests
 
             public void Error(String message)
             {
-                repo.Save(message);
+                var result = repo.Save(message);
+
+                if (result == 1)
+                {
+                    throw new ArgumentException("What the heck!");
+                }
+                
             }
         }
 
         public interface ILogRepository
         {
-            void Save(string message);
+            int Save(string message);
+        }
+
+        public class TestLogRepository : ILogRepository
+        {
+            private readonly int _result;
+
+            public TestLogRepository(int result)
+            {
+                _result = result;
+            }
+            public int Save(string message)
+            {
+                return _result;
+            }
         }
     }
 }
